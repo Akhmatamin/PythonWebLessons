@@ -1,1 +1,2 @@
 task_storage = {}
+users = {}
