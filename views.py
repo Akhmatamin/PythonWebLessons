@@ -1,10 +1,13 @@
 from datetime import datetime
-from uuid import uuid4
 from functools import wraps
 from hashlib import sha1
-from flask import Blueprint, make_response, request
-from db import task_storage, users
+from uuid import uuid4
 
+import jwt
+from flask import Blueprint, make_response, request
+
+from app import app
+from db import task_storage, users
 bp = Blueprint("tasks", __name__)
 
 def get_user_tasks(username):
@@ -22,9 +25,21 @@ def auth_required(func):
             return make_response({"message": "Unauthorized"}, 401)
         username = auth.username
         password = auth.password
+        token = auth.token
 
-        if username not in users or sha1(password.encode()).hexdigest() != users[username]:
-            return make_response({"message": "Unauthorized"}, 401)
+        if username and password:
+            if username not in users or sha1(password.encode()).hexdigest() != users[username]:
+                return make_response({"message": "Unauthorized"}, 401)
+        else:
+            try:
+                payload = jwt.decode(token, app.secret_key, 'HS256')
+                username = payload['username']
+                if username not in users:
+                    return make_response(({"message": "User not found"}, 401))
+                auth.username = username
+
+            except jwt.exceptions.DecodeError:
+                return make_response({"message": "Token invalid"}, 401)
 
         return func(*args, **kwargs)
     return wrapper
