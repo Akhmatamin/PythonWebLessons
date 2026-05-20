@@ -1,18 +1,24 @@
-from flask import Blueprint, make_response, request, Response
+from flask import Blueprint, make_response, request, Response, session, render_template, redirect, url_for
 from hashlib import sha1
 from db import users
 import jwt
 from app import app
 
-bp = Blueprint('auth', __name__, url_prefix='/auth')
+bp = Blueprint('auth', __name__, url_prefix='/auth', template_folder='templates/auth')
+
+
+@bp.get('/sign_up')
+def get_sign_up_page():
+    message = session.get('message')
+    session.clear()
+
+    return render_template(('sign_up.html'), message=message)
 
 @bp.post('/sign_up')
 def sign_up():
-    username = request.json.get('username')
-    password = request.json.get('password')
+    username = request.form.get('username')
+    password = request.form.get('password')
     error = None
-
-    status_code = 204
 
     if not username:
         error, status_code = "Username is required", 400
@@ -22,30 +28,46 @@ def sign_up():
         error, status_code = "User already exists", 409
 
     if error:
-        make_response({"message": error}, status_code)
+        session['message'] = {'content':error, 'is_error': True}
+        return redirect(url_for('.sign_up'))
+
+    session['message'] = {'content': 'User successfully created', 'is_error': False}
 
     users[username] = sha1(password.encode()).hexdigest()
+    return redirect(url_for('.login'))
 
-    return Response(status=status_code)
+
+@bp.get('/login')
+def get_login_page():
+    message = session.get('message')
+    session.clear()
+    return render_template(('login.html'), message=message)
 
 
 @bp.post('/login')
 def login():
-    username = request.json.get('username')
-    password = request.json.get('password')
+    username = request.form.get('username')
+    password = request.form.get('password')
 
     error = None
-    status_code = 200
 
     if not username:
-        error, status_code = "Username is required", 400
+        error = "Username is required"
     elif not password:
-        error, status_code = "Password is required", 400
+        error = "Password is required"
+
     elif username not in users or sha1(password.encode()).hexdigest() != users[username]:
         error, status_code = "Invalid credentials", 401
     if error:
-        make_response({"message": error}, status_code)
+        session['message'] = {'content': error, 'is_error': True}
+        return redirect(url_for('.login'))
 
     token = jwt.encode({'username': username}, app.secret_key)
+    session['token'] = token
+    return redirect(url_for('tasks.list_tasks'))
 
-    return make_response({"token": token}, status_code)
+
+@bp.post('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('.login'))

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tasks List</title>
+</head>
+<body>
+    <h1>Tasks</h1>
+    <ul>
+        {% for task_id, task in tasks.items() %}
+        <li>{{ task.title }} - {% if task.is_completed %}Completed{% else %}Pending{% endif %}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
